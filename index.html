@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Found Jezebel?</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f4f9; color: #333; padding: 20px; text-align: center; }
+        .card { background: white; max-width: 400px; margin: 0 auto; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        img.profile { width: 150px; height: 150px; object-fit: cover; border-radius: 50%; border: 4px solid #4CAF50; margin-bottom: 15px; }
+        h1 { margin: 10px 0; font-size: 24px; }
+        p { margin: 5px 0; font-size: 16px; line-height: 1.5; }
+        .details { text-align: left; margin-top: 20px; background: #fafafa; padding: 15px; border-radius: 10px; }
+        .btn-group { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+        .btn { display: block; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; color: white; border: none; cursor: pointer; font-size: 16px; }
+        .btn-wa { background-color: #25D366; }
+        .btn-call { background-color: #3498db; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <img src="jezebel.jpg" alt="Jezebel" class="profile">
+    
+    <h1 id="greeting">Hi, I'm Jezebel!</h1>
+    <p id="intro">If you are reading this, I might be lost. Please help me get home!</p>
+
+    <div class="details">
+        <p><strong>🐶 Name:</strong> Jezebel</p>
+        <p><strong>🚺 Sex:</strong> <span id="sex">Female</span></p>
+        <p><strong>🐕 Breed:</strong> Australian Cattle Dog Mix</p>
+        <p><strong>🎂 Age:</strong> <span id="age">Calculating...</span></p>
+        <p><strong>⚖️ Weight:</strong> 13 kg</p>
+        <p><strong>🏥 Spayed:</strong> <span id="spayed">Yes</span></p>
+        <p><strong>💉 Vaccinated:</strong> <span id="vax">Yes</span></p>
+        <p><strong>🛜 Microchipped:</strong> <span id="chip">Yes</span></p>
+        <p><strong>🩺 Allergies:</strong> <span id="allergies">Chicken</span></p>
+        <p><strong>😇 Temperament:</strong> <span id="temp">Friendly, anxious with traffic</span></p>
+        <p><strong>🏠 Home:</strong> Barcelona</p>
+        <p><strong>📞 Owners:</strong> Adam & Alex</p>
+    </div>
+
+    <div class="btn-group">
+        <button onclick="handleWhatsApp('Adam', '34607067359')" class="btn btn-wa">WhatsApp Adam</button>
+        <a href="tel:+34607067359" class="btn btn-call">Call Adam</a>
+        <button onclick="handleWhatsApp('Alex', '16193012756')" class="btn btn-wa">WhatsApp Alex</button>
+        <a href="tel:+16193012756" class="btn btn-call">Call Alex</a>
+    </div>
+</div>
+
+<script>
+    // --- 1. CONFIGURATION & TRANSLATIONS ---
+    const workerUrl = "YOUR_CLOUDFLARE_WORKER_URL_HERE"; // We will get this in Phase 2
+    
+    const content = {
+        en: {
+            greeting: "Hi, I'm Jezebel!",
+            intro: "It seems you found me! Below is my info and how to contact my parents.",
+            sex: "Female", spayed: "Yes", vax: "Yes", chip: "Yes", 
+            allergies: "Chicken", temp: "Very friendly, anxious with traffic/noise",
+            msg: "Adam & Alex, I found Jezebel and I think she may be lost."
+        },
+        es: {
+            greeting: "¡Hola, soy Jezebel!",
+            intro: "Parece que me has encontrado. Abajo está mi información y cómo contactar a mis dueños.",
+            sex: "Hembra", spayed: "Sí", vax: "Sí", chip: "Sí", 
+            allergies: "Pollo", temp: "Muy amigable, ansiosa con tráfico/ruido",
+            msg: "Adam y Alex, encontré a Jezebel y creo que está perdida."
+        }
+        // Add Catalan (ca) here if desired
+    };
+
+    // --- 2. LOGIC: LANGUAGE & AGE ---
+    const userLang = navigator.language.startsWith('es') ? 'es' : 'en';
+    const txt = content[userLang];
+
+    // Apply text
+    document.getElementById('greeting').innerText = txt.greeting;
+    document.getElementById('intro').innerText = txt.intro;
+    document.getElementById('sex').innerText = txt.sex;
+    document.getElementById('spayed').innerText = txt.spayed;
+    document.getElementById('vax').innerText = txt.vax;
+    document.getElementById('chip').innerText = txt.chip;
+    document.getElementById('allergies').innerText = txt.allergies;
+    document.getElementById('temp').innerText = txt.temp;
+
+    // Calculate Age (Birthday: Nov 1, 2023)
+    const birthDate = new Date('2023-11-01');
+    const now = new Date();
+    const diffYears = (now - birthDate) / (1000 * 60 * 60 * 24 * 365.25);
+    const roundedAge = Math.round(diffYears * 2) / 2; // Round to nearest 0.5
+    document.getElementById('age').innerText = roundedAge + " Years";
+
+    // --- 3. LOGIC: LOGGING (Quietly in background) ---
+    if(workerUrl !== "YOUR_CLOUDFLARE_WORKER_URL_HERE") {
+        fetch(workerUrl, {
+            method: 'POST',
+            body: JSON.stringify({
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                timestamp: new Date().toISOString()
+            })
+        }).catch(e => console.log("Logging failed", e));
+    }
+
+    // --- 4. LOGIC: WHATSAPP & LOCATION ---
+    function handleWhatsApp(name, phone) {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const long = position.coords.longitude;
+                    const mapLink = `https://www.google.com/maps?q=${lat},${long}`;
+                    sendWa(name, phone, mapLink);
+                },
+                (error) => {
+                    // User denied location or error
+                    sendWa(name, phone, null);
+                }
+            );
+        } else {
+            sendWa(name, phone, null);
+        }
+    }
+
+    function sendWa(name, phone, mapLink) {
+        let finalMsg = "";
+        
+        // If not English, add local language first
+        if (userLang !== 'en') {
+            finalMsg += content[userLang].msg + "\n\n";
+        }
+        // Always add English version
+        finalMsg += content['en'].msg + "\n";
+        
+        if (mapLink) {
+            finalMsg += `Location: ${mapLink}\n`;
+        }
+        
+        finalMsg += `Time: ${new Date().toLocaleString()}\n`;
+        finalMsg += "(Please add any details to help us locate her. Thank you!)";
+
+        const url = `https://wa.me/${phone}?text=${encodeURIComponent(finalMsg)}`;
+        window.open(url, '_blank');
+    }
+</script>
+
+</body>
+</html>
