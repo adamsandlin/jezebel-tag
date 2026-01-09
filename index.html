@@ -12,9 +12,16 @@
         p { margin: 5px 0; font-size: 16px; line-height: 1.5; }
         .details { text-align: left; margin-top: 20px; background: #fafafa; padding: 15px; border-radius: 10px; }
         .btn-group { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .btn { display: block; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; color: white; border: none; cursor: pointer; font-size: 16px; }
-        .btn-wa { background-color: #25D366; }
-        .btn-call { background-color: #3498db; }
+        
+        /* Base Button Style */
+        .btn { display: block; padding: 12px; border-radius: 8px; text-decoration: none; font-weight: bold; color: white; border: none; cursor: pointer; font-size: 16px; width: 100%; box-sizing: border-box; }
+
+        /* Specific Button Colors */
+        .btn-wa-adam { background-color: #25D366; }
+        .btn-call-adam { background-color: #1B8F4B; }
+        .btn-wa-alex { background-color: #007AFF; }
+        .btn-call-alex { background-color: #0051A8; }
+
         .hidden { display: none; }
     </style>
 </head>
@@ -38,20 +45,19 @@
         <p><strong>🩺 Allergies:</strong> <span id="allergies">Chicken</span></p>
         <p><strong>😇 Temperament:</strong> <span id="temp">Friendly, anxious with traffic</span></p>
         <p><strong>🏠 Home:</strong> Barcelona</p>
-        <p><strong>📞 Owners:</strong> Adam & Alex</p>
+        <p><strong>👨🏻‍🤝‍👨🏾 Owners:</strong> Adam & Alex</p>
     </div>
 
     <div class="btn-group">
-        <button onclick="handleWhatsApp('Adam', '34607067359')" class="btn btn-wa">WhatsApp Adam</button>
-        <a href="tel:+34607067359" class="btn btn-call">Call Adam</a>
-        <button onclick="handleWhatsApp('Alex', '16193012756')" class="btn btn-wa">WhatsApp Alex</button>
-        <a href="tel:+16193012756" class="btn btn-call">Call Alex</a>
+        <button onclick="handleWhatsApp('Adam', '34607067359')" class="btn btn-wa-adam">💬 WhatsApp Adam</button>
+        <a href="tel:+34607067359" class="btn btn-call-adam">📞 Call Adam 🇪🇸</a>
+        <button onclick="handleWhatsApp('Alex', '16193012756')" class="btn btn-wa-alex">💬 WhatsApp Alex</button>
+        <a href="tel:+16193012756" class="btn btn-call-alex">📞 Call Alex 🇺🇸</a>
     </div>
 </div>
 
 <script>
     // --- 1. CONFIGURATION ---
-    // The exact URL of your Cloudflare Worker
     const workerUrl = "https://jezebel-logger.adam-sandlin.workers.dev"; 
     
     const content = {
@@ -92,37 +98,41 @@
     const roundedAge = Math.round(diffYears * 2) / 2; 
     document.getElementById('age').innerText = roundedAge + " Years";
 
-    // --- 3. LOGIC: LOGGING (Fixed for Reliability) ---
-    // We removed the 'if' check so this always runs.
-    fetch(workerUrl, {
-        method: 'POST',
-        keepalive: true, // <--- Key fix: Ensures log sends even if user closes tab
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            userAgent: navigator.userAgent,
-            language: navigator.language,
-            timestamp: new Date().toISOString()
-        })
-    }).catch(e => console.log("Logging failed", e));
+    // --- 3. LOGIC: LOGGING (Quietly in background) ---
+    if(workerUrl !== "https://jezebel-logger.adam-sandlin.workers.dev/") {
+        fetch(workerUrl, {
+            method: 'POST',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                timestamp: new Date().toISOString()
+            })
+        }).catch(e => console.log("Logging failed", e));
+    }
 
-
-    // --- 4. LOGIC: WHATSAPP & LOCATION (Fixed for Arc/Safari) ---
+    // --- 4. LOGIC: WHATSAPP & LOCATION (High Accuracy) ---
     function handleWhatsApp(name, phone) {
-        // 1. Try to get location
+        const locationOptions = {
+            enableHighAccuracy: true, 
+            timeout: 10000,           
+            maximumAge: 0             
+        };
+
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const lat = position.coords.latitude;
                     const long = position.coords.longitude;
-                    // Fixed Typo: Used standard Google Maps query format
-                    const mapLink = `https://maps.google.com/?q=${lat},${long}`;
+                    const mapLink = `https://www.google.com/maps?q=${lat},${long}`;
                     sendWa(name, phone, mapLink);
                 },
                 (error) => {
-                    // If location fails or is denied, send message anyway
+                    console.warn("Location failed:", error);
                     sendWa(name, phone, null);
                 },
-                { timeout: 5000 } // Don't wait more than 5 seconds for GPS
+                locationOptions
             );
         } else {
             sendWa(name, phone, null);
@@ -132,7 +142,6 @@
     function sendWa(name, phone, mapLink) {
         let finalMsg = "";
         
-        // Build message
         if (userLang !== 'en') finalMsg += content[userLang].msg + "\n\n";
         finalMsg += content['en'].msg + "\n";
         
@@ -145,8 +154,7 @@
 
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(finalMsg)}`;
         
-        // FIX: Use location.href instead of window.open
-        // This prevents Arc/Safari from blocking it as a popup
+        // Arc/Safari safe redirect
         window.location.href = url;
     }
 </script>
