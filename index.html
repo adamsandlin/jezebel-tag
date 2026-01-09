@@ -50,8 +50,9 @@
 </div>
 
 <script>
-    // --- 1. CONFIGURATION & TRANSLATIONS ---
-    const workerUrl = "https://jezebel-logger.adam-sandlin.workers.dev"; // We will get this in Phase 2
+    // --- 1. CONFIGURATION ---
+    // The exact URL of your Cloudflare Worker
+    const workerUrl = "https://jezebel-logger.adam-sandlin.workers.dev"; 
     
     const content = {
         en: {
@@ -68,7 +69,6 @@
             allergies: "Pollo", temp: "Muy amigable, ansiosa con tráfico/ruido",
             msg: "Adam y Alex, encontré a Jezebel y creo que está perdida."
         }
-        // Add Catalan (ca) here if desired
     };
 
     // --- 2. LOGIC: LANGUAGE & AGE ---
@@ -85,39 +85,44 @@
     document.getElementById('allergies').innerText = txt.allergies;
     document.getElementById('temp').innerText = txt.temp;
 
-    // Calculate Age (Birthday: Nov 1, 2023)
+    // Calculate Age
     const birthDate = new Date('2023-11-01');
     const now = new Date();
     const diffYears = (now - birthDate) / (1000 * 60 * 60 * 24 * 365.25);
-    const roundedAge = Math.round(diffYears * 2) / 2; // Round to nearest 0.5
+    const roundedAge = Math.round(diffYears * 2) / 2; 
     document.getElementById('age').innerText = roundedAge + " Years";
 
-    // --- 3. LOGIC: LOGGING (Quietly in background) ---
-    if(workerUrl !== "YOUR_CLOUDFLARE_WORKER_URL_HERE") {
-        fetch(workerUrl, {
-            method: 'POST',
-            body: JSON.stringify({
-                userAgent: navigator.userAgent,
-                language: navigator.language,
-                timestamp: new Date().toISOString()
-            })
-        }).catch(e => console.log("Logging failed", e));
-    }
+    // --- 3. LOGIC: LOGGING (Fixed for Reliability) ---
+    // We removed the 'if' check so this always runs.
+    fetch(workerUrl, {
+        method: 'POST',
+        keepalive: true, // <--- Key fix: Ensures log sends even if user closes tab
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            userAgent: navigator.userAgent,
+            language: navigator.language,
+            timestamp: new Date().toISOString()
+        })
+    }).catch(e => console.log("Logging failed", e));
 
-    // --- 4. LOGIC: WHATSAPP & LOCATION ---
+
+    // --- 4. LOGIC: WHATSAPP & LOCATION (Fixed for Arc/Safari) ---
     function handleWhatsApp(name, phone) {
+        // 1. Try to get location
         if ("geolocation" in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const lat = position.coords.latitude;
                     const long = position.coords.longitude;
-                    const mapLink = `https://www.google.com/maps?q=${lat},${long}`;
+                    // Fixed Typo: Used standard Google Maps query format
+                    const mapLink = `https://maps.google.com/?q=${lat},${long}`;
                     sendWa(name, phone, mapLink);
                 },
                 (error) => {
-                    // User denied location or error
+                    // If location fails or is denied, send message anyway
                     sendWa(name, phone, null);
-                }
+                },
+                { timeout: 5000 } // Don't wait more than 5 seconds for GPS
             );
         } else {
             sendWa(name, phone, null);
@@ -127,11 +132,8 @@
     function sendWa(name, phone, mapLink) {
         let finalMsg = "";
         
-        // If not English, add local language first
-        if (userLang !== 'en') {
-            finalMsg += content[userLang].msg + "\n\n";
-        }
-        // Always add English version
+        // Build message
+        if (userLang !== 'en') finalMsg += content[userLang].msg + "\n\n";
         finalMsg += content['en'].msg + "\n";
         
         if (mapLink) {
@@ -142,7 +144,10 @@
         finalMsg += "(Please add any details to help us locate her. Thank you!)";
 
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(finalMsg)}`;
-        window.open(url, '_blank');
+        
+        // FIX: Use location.href instead of window.open
+        // This prevents Arc/Safari from blocking it as a popup
+        window.location.href = url;
     }
 </script>
 
